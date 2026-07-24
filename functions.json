@@ -2,8 +2,8 @@
   "$schema": "https://developer.microsoft.com/json-schemas/office-js/custom-functions.schema.json",
   "functions": [
     {
-      "id": "CONVERT",
-      "name": "CONVERT",
+      "id": "VN",
+      "name": "VN",
       "description": "Chuyen doi so tien sang chu tieng Viet. Vi du: =VND.CONVERT(D18)",
       "helpUrl": "",
       "result": {

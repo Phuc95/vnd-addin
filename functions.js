@@ -99,11 +99,11 @@ function currencyToWords(value) {
  * @param {any} amount So tien can chuyen doi (co the la gia tri hoac ket qua cong thuc)
  * @returns {string} Chuoi chu tieng Viet, vi du "Sau tram ba muoi ngan dong chan"
  */
-function CONVERT(amount) {
+function VN(amount) {
   if (amount === null || amount === undefined || amount === "") {
     return "";
   }
   return currencyToWords(amount);
 }
 
-CustomFunctions.associate("CONVERT", CONVERT);
+CustomFunctions.associate("VN", VN);
