@@ -1,0 +1,24 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/office-js/custom-functions.schema.json",
+  "functions": [
+    {
+      "id": "CONVERT",
+      "name": "CONVERT",
+      "description": "Chuyen doi so tien sang chu tieng Viet. Vi du: =VND.CONVERT(D18)",
+      "helpUrl": "",
+      "result": {
+        "type": "string",
+        "dimensionality": "scalar"
+      },
+      "parameters": [
+        {
+          "name": "amount",
+          "description": "So tien can chuyen doi (co the la gia tri hoac ket qua cong thuc)",
+          "type": "any",
+          "dimensionality": "scalar",
+          "optional": false
+        }
+      ]
+    }
+  ]
+}

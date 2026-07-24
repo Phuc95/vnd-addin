@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Đổi số thành chữ</title>
+<script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+<style>
+  :root {
+    --accent: #2b6cb0;
+    --accent-dark: #1a4971;
+    --bg: #ffffff;
+    --border: #d8dee6;
+    --text: #1f2937;
+    --muted: #6b7280;
+    --error: #c0392b;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif;
+    margin: 0;
+    padding: 16px;
+    color: var(--text);
+    background: var(--bg);
+    font-size: 14px;
+  }
+  h1 {
+    font-size: 16px;
+    margin: 0 0 4px 0;
+  }
+  p.subtitle {
+    color: var(--muted);
+    margin: 0 0 16px 0;
+    font-size: 12px;
+  }
+  label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+  .row {
+    margin-bottom: 14px;
+  }
+  input[type="text"] {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 14px;
+  }
+  button {
+    width: 100%;
+    padding: 10px 12px;
+    border: none;
+    border-radius: 4px;
+    background: var(--accent);
+    color: white;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-bottom: 8px;
+  }
+  button:hover { background: var(--accent-dark); }
+  button.secondary {
+    background: white;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+  }
+  button.secondary:hover { background: #f0f6fc; }
+  .result-box {
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 10px;
+    min-height: 44px;
+    background: #f9fafb;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .error { color: var(--error); }
+  .status {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 6px;
+  }
+</style>
+</head>
+<body>
+  <h1>Đổi số tiền thành chữ</h1>
+  <p class="subtitle">Ví dụ: 630000 → Sáu trăm ba mươi ngàn đồng chẵn</p>
+
+  <div class="row">
+    <label for="manualInput">Nhập số tiền (tuỳ chọn)</label>
+    <input type="text" id="manualInput" placeholder="Ví dụ: 630000 hoặc 630,000" />
+  </div>
+
+  <button id="btnConvertSelection">Đổi ô đang chọn trong Excel</button>
+  <button id="btnConvertManual" class="secondary">Đổi số vừa nhập ở trên</button>
+
+  <div class="row" style="margin-top: 16px;">
+    <label>Kết quả</label>
+    <div id="result" class="result-box">Chưa có kết quả</div>
+  </div>
+
+  <button id="btnWriteRight" class="secondary" style="margin-top: 8px;" disabled>
+    Ghi kết quả vào ô bên phải
+  </button>
+
+  <hr style="margin: 18px 0; border: none; border-top: 1px solid var(--border);" />
+
+  <div class="row">
+    <label for="targetCell">Ghi vào ô cụ thể (ví dụ: B20)</label>
+    <input type="text" id="targetCell" placeholder="Gõ địa chỉ ô, ví dụ B20" />
+  </div>
+  <button id="btnCaptureTarget" class="secondary">Lấy ô đang chọn trên sheet làm ô đích</button>
+  <button id="btnWriteTarget" style="margin-top: 4px;" disabled>Ghi kết quả vào ô đích ở trên</button>
+
+  <div id="status" class="status"></div>
+
+<script>
+// ---------- Vietnamese currency-to-words conversion ----------
+const DIGITS = ["không","một","hai","ba","bốn","năm","sáu","bảy","tám","chín"];
+const GROUP_UNITS = ["", "ngàn", "triệu", "tỷ", "ngàn tỷ", "triệu tỷ", "tỷ tỷ"];
+
+function readThreeDigitBlock(n, isLeadingBlock) {
+  const h = Math.floor(n / 100);
+  const r = n % 100;
+  const t = Math.floor(r / 10);
+  const u = r % 10;
+  const parts = [];
+
+  if (h > 0) {
+    parts.push(DIGITS[h] + " trăm");
+  } else if (!isLeadingBlock && r > 0) {
+    parts.push("không trăm");
+  }
+
+  if (t === 0) {
+    if (u > 0) {
+      if (h > 0 || !isLeadingBlock) {
+        parts.push("linh " + DIGITS[u]);
+      } else {
+        parts.push(DIGITS[u]);
+      }
+    }
+  } else if (t === 1) {
+    parts.push("mười");
+    if (u === 5) parts.push("lăm");
+    else if (u > 0) parts.push(DIGITS[u]);
+  } else {
+    parts.push(DIGITS[t] + " mươi");
+    if (u === 1) parts.push("mốt");
+    else if (u === 5) parts.push("lăm");
+    else if (u === 4) parts.push("tư");
+    else if (u > 0) parts.push(DIGITS[u]);
+  }
+
+  return parts.join(" ");
+}
+
+function readInteger(numStr) {
+  numStr = numStr.replace(/^0+(?=\d)/, "");
+  if (numStr === "0" || numStr === "") return "không";
+
+  const groups = [];
+  let s = numStr;
+  while (s.length > 0) {
+    const start = Math.max(0, s.length - 3);
+    groups.unshift(parseInt(s.slice(start), 10));
+    s = s.slice(0, start);
+  }
+
+  const totalGroups = groups.length;
+  const words = [];
+
+  for (let i = 0; i < totalGroups; i++) {
+    const groupValue = groups[i];
+    const groupIndexFromRight = totalGroups - 1 - i;
+    const isLeadingBlock = i === 0;
+
+    if (groupValue === 0) continue;
+
+    const blockText = readThreeDigitBlock(groupValue, isLeadingBlock);
+    words.push(blockText + (GROUP_UNITS[groupIndexFromRight] ? " " + GROUP_UNITS[groupIndexFromRight] : ""));
+  }
+
+  return words.join(" ").replace(/\s+/g, " ").trim();
+}
+
+function capitalizeFirst(str) {
+  if (!str) return str;
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+function currencyToWords(value) {
+  let str = String(value).trim();
+  str = str.replace(/[đĐ]|VND|vnd/g, "").trim();
+  str = str.replace(/[.,\s]/g, "");
+  let negative = false;
+  if (str.startsWith("-")) {
+    negative = true;
+    str = str.slice(1);
+  }
+  if (str === "" || !/^\d+$/.test(str)) {
+    return null; // invalid
+  }
+  const words = readInteger(str);
+  let result = capitalizeFirst(words) + " đồng chẵn";
+  if (negative) result = "Âm " + result.charAt(0).toLowerCase() + result.slice(1);
+  return result;
+}
+// ---------- end conversion logic ----------
+
+let lastResult = null;
+const resultEl = document.getElementById("result");
+const statusEl = document.getElementById("status");
+const btnWriteRight = document.getElementById("btnWriteRight");
+const btnWriteTarget = document.getElementById("btnWriteTarget");
+
+function showResult(text, isError) {
+  resultEl.textContent = text;
+  resultEl.className = "result-box" + (isError ? " error" : "");
+  lastResult = isError ? null : text;
+  btnWriteRight.disabled = !lastResult;
+  btnWriteTarget.disabled = !lastResult;
+}
+
+function setStatus(text) {
+  statusEl.textContent = text;
+}
+
+Office.onReady(() => {
+  setStatus("Sẵn sàng.");
+
+  document.getElementById("btnConvertManual").onclick = () => {
+    const val = document.getElementById("manualInput").value;
+    const words = currencyToWords(val);
+    if (words === null) {
+      showResult("Giá trị không hợp lệ. Vui lòng nhập số, ví dụ: 630000", true);
+    } else {
+      showResult(words, false);
+    }
+  };
+
+  document.getElementById("btnConvertSelection").onclick = () => {
+    Excel.run(async (context) => {
+      const range = context.workbook.getSelectedRange();
+      range.load("values");
+      await context.sync();
+
+      const cellValue = range.values[0][0];
+      const words = currencyToWords(cellValue);
+      if (words === null) {
+        showResult("Ô đang chọn không phải là số hợp lệ.", true);
+      } else {
+        showResult(words, false);
+      }
+    }).catch((err) => {
+      showResult("Lỗi khi đọc ô: " + err.message, true);
+    });
+  };
+
+  btnWriteRight.onclick = () => {
+    if (!lastResult) return;
+    Excel.run(async (context) => {
+      const range = context.workbook.getSelectedRange();
+      const rightCell = range.getOffsetRange(0, 1);
+      rightCell.values = [[lastResult]];
+      await context.sync();
+      setStatus("Đã ghi kết quả vào ô bên phải.");
+    }).catch((err) => {
+      setStatus("Lỗi khi ghi vào ô: " + err.message);
+    });
+  };
+
+  document.getElementById("btnCaptureTarget").onclick = () => {
+    Excel.run(async (context) => {
+      const range = context.workbook.getSelectedRange();
+      range.load("address");
+      await context.sync();
+      // address thường có dạng "Sheet1!B20" — bỏ phần tên sheet để hiển thị gọn, dùng nguyên bản khi ghi
+      document.getElementById("targetCell").value = range.address;
+      setStatus("Đã lấy địa chỉ ô đang chọn: " + range.address);
+    }).catch((err) => {
+      setStatus("Lỗi khi lấy địa chỉ ô: " + err.message);
+    });
+  };
+
+  btnWriteTarget.onclick = () => {
+    if (!lastResult) return;
+    const addr = document.getElementById("targetCell").value.trim();
+    if (!addr) {
+      setStatus("Vui lòng nhập hoặc chọn địa chỉ ô đích trước.");
+      return;
+    }
+    Excel.run(async (context) => {
+      let sheet;
+      let cellAddr = addr;
+      if (addr.includes("!")) {
+        // dạng "Sheet1!B20" (từ nút lấy ô đang chọn) — tách tên sheet và địa chỉ ô
+        const parts = addr.split("!");
+        let sheetName = parts[0];
+        cellAddr = parts[1];
+        if (sheetName.startsWith("'") && sheetName.endsWith("'")) {
+          sheetName = sheetName.slice(1, -1).replace(/''/g, "'");
+        }
+        sheet = context.workbook.worksheets.getItem(sheetName);
+      } else {
+        // dạng "B20" — ghi vào sheet đang hoạt động
+        sheet = context.workbook.worksheets.getActiveWorksheet();
+      }
+      const targetRange = sheet.getRange(cellAddr);
+      targetRange.values = [[lastResult]];
+      await context.sync();
+      setStatus("Đã ghi kết quả vào ô " + addr + ".");
+    }).catch((err) => {
+      setStatus("Địa chỉ ô không hợp lệ hoặc lỗi khi ghi: " + err.message);
+    });
+  };
+});
+</script>
+</body>
+</html>
