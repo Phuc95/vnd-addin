@@ -1,76 +1,80 @@
 # Hướng dẫn cài đặt Add-in "Đổi số tiền thành chữ"
 
-Bộ file gồm:
-- `manifest.xml` — file khai báo add-in (task pane + custom function)
-- `taskpane.html` — giao diện task pane (đổi tay, chọn ô đích để ghi)
-- `functions.html`, `functions.js`, `functions.json` — hàm tuỳ chỉnh `=VND.CONVERT(...)`
-- `icon-32.png`, `icon-64.png`, `icon-80.png` — icon hiển thị trên ribbon Excel
+## Bản này đã sửa gì so với bản trước
 
-**Tất cả 8 file trên đều phải upload lên GitHub Pages** (kể cả các file `functions.*`), không chỉ mỗi `taskpane.html` như bản trước.
+**Sửa lỗi #NAME? (nguyên nhân chính khiến `=VND.CONVERT()` không chạy):**
+`manifest.xml` trước đó sai cấu trúc ở 3 chỗ so với chuẩn của Microsoft — đã sửa lại:
+1. `<Namespace>` giờ trỏ đúng resource (`resid="Functions.Namespace"`) thay vì viết tên trực tiếp.
+2. `<Requirements>` chuyển về đúng vị trí (cấp gốc của manifest), trước đó đặt sai chỗ.
+3. Bỏ khối `<Runtimes>` thừa không cần thiết cho loại custom function đơn giản này.
+
+**Đổi task pane theo yêu cầu:**
+- Bỏ nút "Đổi ô đang chọn trong Excel", "Ghi kết quả vào ô bên phải", "Lấy ô đang chọn trên sheet làm ô đích".
+- Nút "Ghi kết quả vào ô đang chọn" giờ tự làm mọi thứ trong 1 lần bấm: đọc số ở ô "Nhập số tiền", convert, và ghi thẳng vào ô đang được chọn trên sheet — không cần bấm "Xem trước" trước nữa.
+- Giữ lại nút "Xem trước kết quả" cho ai muốn kiểm tra kết quả trước khi ghi (tuỳ chọn, không bắt buộc).
 
 ---
 
 ## Bước 1: Host file lên GitHub Pages (miễn phí)
 
-1. Đăng nhập GitHub, tạo 1 repo mới, ví dụ `vnd-addin` (phải để **Public** — GitHub Pages free chỉ chạy với repo public).
-2. Upload **8 file** kể trên vào **root** của repo (không để trong thư mục con). Không cần upload `manifest.xml` lên đây (chỉ dùng để sideload).
-   → Vậy thực tế cần upload 7 file: `taskpane.html`, `functions.html`, `functions.js`, `functions.json`, `icon-32.png`, `icon-64.png`, `icon-80.png`.
-3. Vào repo > **Settings** > **Pages**.
-4. Ở "Build and deployment" > Source, chọn **Deploy from a branch** > branch `main`, thư mục `/ (root)` > **Save**.
-5. Đợi 1–2 phút, GitHub cấp URL dạng:
-   ```
-   https://<ten-tai-khoan-github>.github.io/<ten-repo>/
-   ```
-6. Kiểm tra bằng cách mở `https://.../functions.json` trên trình duyệt — nếu thấy nội dung JSON hiện ra là host ổn.
+Cần upload **7 file** vào root của 1 repo GitHub public:
+- `taskpane.html`
+- `functions.html`
+- `functions.js`
+- `functions.json`
+- `icon-32.png`
+- `icon-64.png`
+- `icon-80.png`
+
+(không upload `manifest.xml` lên đây — file này chỉ dùng để sideload ở Bước 3)
+
+Các bước:
+1. Tạo repo mới, ví dụ `vnd-addin` (Public).
+2. Upload 7 file trên vào root repo.
+3. Settings > Pages > Source: **Deploy from a branch** > `main` > `/ (root)` > Save.
+4. Đợi 1–2 phút, lấy URL dạng `https://<username>.github.io/<repo>/`.
+5. Kiểm tra bằng cách mở `https://.../functions.json` — thấy nội dung JSON là ổn.
 
 ## Bước 2: Sửa file manifest.xml
 
-Mở `manifest.xml`, tìm và thay **toàn bộ** (có khoảng 9 chỗ) `YOUR_GITHUB_USERNAME` và `YOUR_REPO_NAME` bằng URL thật của bạn, ví dụ:
-```
-https://phuc123.github.io/vnd-addin/icon-32.png
-https://phuc123.github.io/vnd-addin/taskpane.html
-https://phuc123.github.io/vnd-addin/functions.js
-https://phuc123.github.io/vnd-addin/functions.json
-https://phuc123.github.io/vnd-addin/functions.html
-```
-Dùng Find & Replace cho nhanh, rồi lưu lại.
+Mở `manifest.xml`, Find & Replace toàn bộ `YOUR_GITHUB_USERNAME` và `YOUR_REPO_NAME` bằng thông tin thật của bạn (có 9 chỗ). Lưu lại.
 
-### Muốn đổi tên hàm ngắn gọn hơn (tuỳ chọn)
+### Nếu đang sideload lại add-in cũ (đã từng cài bản trước)
 
-Mặc định hàm sẽ gõ là `=VND.CONVERT(D18)`. Excel **bắt buộc** hàm tuỳ chỉnh phải có tiền tố namespace, không thể chỉ gõ `=VND(...)` trần trụi. Nếu muốn gõ ngắn hơn, ví dụ `=VN.C(D18)`:
-- Trong `manifest.xml`, sửa `<Namespace>VND</Namespace>` thành `<Namespace>VN</Namespace>`.
-- Trong `functions.json` và `functions.js`, đổi `"id": "CONVERT"` / `CustomFunctions.associate("CONVERT", ...)` thành `"C"`.
-- Phải sửa đồng bộ ở cả 3 chỗ (manifest namespace, functions.json id, functions.js associate) nếu không hàm sẽ báo lỗi `#NAME?`.
+Vì manifest đã sửa cấu trúc, cần **gỡ hẳn add-in cũ trước khi upload bản mới**, không chỉ upload đè:
+1. Insert > Add-ins > My Add-ins > tìm add-in cũ > bấm dấu **...** > **Remove**.
+2. Đóng hẳn tab Excel Online, mở lại (hoặc Ctrl+F5 để xoá cache).
+3. Upload lại `manifest.xml` mới từ đầu (Bước 3 bên dưới).
+
+Bỏ qua bước gỡ này thường là lý do phổ biến khiến sửa xong manifest vẫn còn báo lỗi cũ do Excel cache lại thông tin đăng ký hàm.
 
 ## Bước 3: Sideload vào Excel Online
 
-1. Mở Excel Online (office.com), mở file Excel bất kỳ.
-2. Tab **Insert** > **Add-ins** > **More Add-ins** (hoặc "Get Add-ins").
-3. Tab **MY ADD-INS** > **Upload My Add-in**.
-4. Chọn file `manifest.xml` (đã sửa URL), bấm **Upload**.
-5. Add-in xuất hiện, mở task pane để test, hoặc dùng hàm ngay trong ô.
+1. Mở Excel Online, mở file Excel bất kỳ.
+2. Insert > Add-ins > More Add-ins > tab **MY ADD-INS** > **Upload My Add-in**.
+3. Chọn `manifest.xml` đã sửa, bấm Upload.
 
 ## Bước 4: Sử dụng
 
-### Cách 1 — Dùng hàm trực tiếp trong ô (giống công thức Excel)
+### Cách 1 — Hàm `=VND.CONVERT(D18)` (khuyên dùng, tự cập nhật)
 
-Ở ô bất kỳ (ví dụ B20), gõ:
-```
-=VND.CONVERT(D18)
-```
-- D18 có thể là số nhập tay, hoặc kết quả của công thức khác — hàm tự tính lại mỗi khi D18 đổi giá trị, giống hệt các hàm có sẵn của Excel.
-- Nếu D18 rỗng, kết quả trả về là chuỗi rỗng.
-- Nếu D18 không phải là số hợp lệ, hàm trả về `#GIA_TRI_KHONG_HOP_LE`.
+Gõ vào ô bất kỳ: `=VND.CONVERT(D18)` — D18 có thể là số nhập tay hoặc kết quả công thức, hàm tự tính lại khi D18 đổi.
 
-### Cách 2 — Task pane (đổi tay, không cần công thức)
+### Cách 2 — Task pane (ghi giá trị tĩnh, 1 lần bấm)
 
-Mở task pane từ ribbon (nút "Đổi so thanh chu"):
-- **Đổi ô đang chọn / đổi số gõ tay**: như bản trước.
-- **Ghi vào ô cụ thể**: gõ địa chỉ ô (ví dụ `B20`) vào ô "Ghi vào ô cụ thể", hoặc bấm **"Lấy ô đang chọn trên sheet làm ô đích"** (bấm chọn ô B20 trên sheet trước, rồi bấm nút này để tự điền địa chỉ), sau đó bấm **"Ghi kết quả vào ô đích ở trên"** — add-in sẽ ghi thẳng giá trị chữ vào đúng ô đó.
-- Lưu ý: cách này ghi **giá trị tĩnh** (text), không phải công thức — nếu ô nguồn đổi, phải bấm lại để cập nhật. Muốn tự động cập nhật, dùng Cách 1 (`=VND.CONVERT(...)`).
+1. Mở task pane (nút "Doi so thanh chu" trên ribbon Home).
+2. Gõ số tiền vào ô "Nhập số tiền".
+3. **Bấm chọn 1 ô trên sheet** (ví dụ B20) — đây sẽ là ô nhận kết quả.
+4. Bấm **"Ghi kết quả vào ô đang chọn"** — add-in tự convert và ghi thẳng vào ô B20 trong 1 lần bấm.
+5. (Tuỳ chọn) Bấm "Xem trước kết quả" bất kỳ lúc nào nếu chỉ muốn xem chữ mà chưa ghi vào sheet.
 
-## Lưu ý quan trọng
+Lưu ý: cách này ghi **giá trị tĩnh** — nếu đổi số ở ô "Nhập số tiền" thì phải bấm ghi lại, không tự cập nhật như Cách 1.
 
-- **Sideload gắn với trình duyệt**, không gắn với file cụ thể — mở file khác cùng máy/trình duyệt vẫn dùng được add-in mà không cần upload lại; đổi trình duyệt/máy/xoá cache thì phải Upload My Add-in lại.
-- Theo tài liệu chính thức của Microsoft, hàm tuỳ chỉnh (Custom Functions) được hỗ trợ trên Excel Online, Windows, Mac — nhưng thực tế có một số báo cáo hàm tuỳ chỉnh sideload đôi khi **không hiện ra** trên Excel Online dù chạy tốt trên bản desktop (không rõ nguyên nhân, có thể do cache hoặc do khác biệt phiên bản). Nếu gõ `=VND.CONVERT(...)` mà Excel báo `#NAME?`, thử: đóng hẳn tab Excel Online và mở lại, hoặc sideload lại từ đầu, hoặc thử trên Excel Desktop (Windows/Mac) để đối chiếu.
-- Nếu dùng **Excel Desktop**, cách sideload khác (dùng thư mục mạng dùng chung hoặc Trust Center > Trusted Add-in Catalogs) — hỏi thêm nếu cần.
+## Nếu vẫn còn lỗi #NAME? sau khi sửa
+
+Thử theo thứ tự:
+1. Mở trực tiếp từng URL `functions.js`, `functions.json`, `functions.html` trên trình duyệt — đảm bảo cả 3 đều load được, không bị lỗi 404 (chú ý viết hoa/thường, GitHub Pages phân biệt hoa thường).
+2. Gỡ hẳn add-in cũ (như hướng dẫn Bước 2) rồi sideload lại từ đầu, không chỉ upload đè.
+3. Đóng hẳn Excel Online, xoá cache trình duyệt (Ctrl+Shift+Delete) hoặc mở tab ẩn danh, thử lại.
+4. Mở Developer Tools (F12) > tab Console khi mở task pane, xem có lỗi tải `functions.js` không (báo lỗi cụ thể sẽ giúp chẩn đoán chính xác hơn).
+5. Nếu vẫn lỗi, gửi lại nội dung lỗi trong Console — mình sẽ xem tiếp.

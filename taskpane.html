@@ -89,30 +89,21 @@
   <p class="subtitle">Ví dụ: 630000 → Sáu trăm ba mươi ngàn đồng chẵn</p>
 
   <div class="row">
-    <label for="manualInput">Nhập số tiền (tuỳ chọn)</label>
+    <label for="manualInput">Nhập số tiền</label>
     <input type="text" id="manualInput" placeholder="Ví dụ: 630000 hoặc 630,000" />
   </div>
 
-  <button id="btnConvertSelection">Đổi ô đang chọn trong Excel</button>
-  <button id="btnConvertManual" class="secondary">Đổi số vừa nhập ở trên</button>
-
-  <div class="row" style="margin-top: 16px;">
-    <label>Kết quả</label>
+  <button id="btnPreview" class="secondary">Xem trước kết quả</button>
+  <div class="row" style="margin-top: 8px;">
     <div id="result" class="result-box">Chưa có kết quả</div>
   </div>
 
-  <button id="btnWriteRight" class="secondary" style="margin-top: 8px;" disabled>
-    Ghi kết quả vào ô bên phải
-  </button>
-
   <hr style="margin: 18px 0; border: none; border-top: 1px solid var(--border);" />
 
-  <div class="row">
-    <label for="targetCell">Ghi vào ô cụ thể (ví dụ: B20)</label>
-    <input type="text" id="targetCell" placeholder="Gõ địa chỉ ô, ví dụ B20" />
-  </div>
-  <button id="btnCaptureTarget" class="secondary">Lấy ô đang chọn trên sheet làm ô đích</button>
-  <button id="btnWriteTarget" style="margin-top: 4px;" disabled>Ghi kết quả vào ô đích ở trên</button>
+  <button id="btnWriteSelected">Ghi kết quả vào ô đang chọn</button>
+  <p class="subtitle" style="margin-top: -4px;">
+    Bấm chọn 1 ô trên sheet trước, rồi bấm nút này — add-in sẽ tự đổi số ở ô "Nhập số tiền" phía trên và ghi thẳng vào ô đang chọn.
+  </p>
 
   <div id="status" class="status"></div>
 
@@ -210,18 +201,12 @@ function currencyToWords(value) {
 }
 // ---------- end conversion logic ----------
 
-let lastResult = null;
 const resultEl = document.getElementById("result");
 const statusEl = document.getElementById("status");
-const btnWriteRight = document.getElementById("btnWriteRight");
-const btnWriteTarget = document.getElementById("btnWriteTarget");
 
 function showResult(text, isError) {
   resultEl.textContent = text;
   resultEl.className = "result-box" + (isError ? " error" : "");
-  lastResult = isError ? null : text;
-  btnWriteRight.disabled = !lastResult;
-  btnWriteTarget.disabled = !lastResult;
 }
 
 function setStatus(text) {
@@ -231,7 +216,7 @@ function setStatus(text) {
 Office.onReady(() => {
   setStatus("Sẵn sàng.");
 
-  document.getElementById("btnConvertManual").onclick = () => {
+  document.getElementById("btnPreview").onclick = () => {
     const val = document.getElementById("manualInput").value;
     const words = currencyToWords(val);
     if (words === null) {
@@ -241,79 +226,26 @@ Office.onReady(() => {
     }
   };
 
-  document.getElementById("btnConvertSelection").onclick = () => {
-    Excel.run(async (context) => {
-      const range = context.workbook.getSelectedRange();
-      range.load("values");
-      await context.sync();
-
-      const cellValue = range.values[0][0];
-      const words = currencyToWords(cellValue);
-      if (words === null) {
-        showResult("Ô đang chọn không phải là số hợp lệ.", true);
-      } else {
-        showResult(words, false);
-      }
-    }).catch((err) => {
-      showResult("Lỗi khi đọc ô: " + err.message, true);
-    });
-  };
-
-  btnWriteRight.onclick = () => {
-    if (!lastResult) return;
-    Excel.run(async (context) => {
-      const range = context.workbook.getSelectedRange();
-      const rightCell = range.getOffsetRange(0, 1);
-      rightCell.values = [[lastResult]];
-      await context.sync();
-      setStatus("Đã ghi kết quả vào ô bên phải.");
-    }).catch((err) => {
-      setStatus("Lỗi khi ghi vào ô: " + err.message);
-    });
-  };
-
-  document.getElementById("btnCaptureTarget").onclick = () => {
-    Excel.run(async (context) => {
-      const range = context.workbook.getSelectedRange();
-      range.load("address");
-      await context.sync();
-      // address thường có dạng "Sheet1!B20" — bỏ phần tên sheet để hiển thị gọn, dùng nguyên bản khi ghi
-      document.getElementById("targetCell").value = range.address;
-      setStatus("Đã lấy địa chỉ ô đang chọn: " + range.address);
-    }).catch((err) => {
-      setStatus("Lỗi khi lấy địa chỉ ô: " + err.message);
-    });
-  };
-
-  btnWriteTarget.onclick = () => {
-    if (!lastResult) return;
-    const addr = document.getElementById("targetCell").value.trim();
-    if (!addr) {
-      setStatus("Vui lòng nhập hoặc chọn địa chỉ ô đích trước.");
+  document.getElementById("btnWriteSelected").onclick = () => {
+    const val = document.getElementById("manualInput").value;
+    const words = currencyToWords(val);
+    if (words === null) {
+      showResult("Giá trị không hợp lệ. Vui lòng nhập số, ví dụ: 630000", true);
+      setStatus("Chưa ghi — số nhập vào không hợp lệ.");
       return;
     }
+    showResult(words, false);
+
     Excel.run(async (context) => {
-      let sheet;
-      let cellAddr = addr;
-      if (addr.includes("!")) {
-        // dạng "Sheet1!B20" (từ nút lấy ô đang chọn) — tách tên sheet và địa chỉ ô
-        const parts = addr.split("!");
-        let sheetName = parts[0];
-        cellAddr = parts[1];
-        if (sheetName.startsWith("'") && sheetName.endsWith("'")) {
-          sheetName = sheetName.slice(1, -1).replace(/''/g, "'");
-        }
-        sheet = context.workbook.worksheets.getItem(sheetName);
-      } else {
-        // dạng "B20" — ghi vào sheet đang hoạt động
-        sheet = context.workbook.worksheets.getActiveWorksheet();
-      }
-      const targetRange = sheet.getRange(cellAddr);
-      targetRange.values = [[lastResult]];
+      const range = context.workbook.getSelectedRange();
+      const targetCell = range.getCell(0, 0);
+      targetCell.load("address");
       await context.sync();
-      setStatus("Đã ghi kết quả vào ô " + addr + ".");
+      targetCell.values = [[words]];
+      await context.sync();
+      setStatus("Đã ghi kết quả vào ô " + targetCell.address + ".");
     }).catch((err) => {
-      setStatus("Địa chỉ ô không hợp lệ hoặc lỗi khi ghi: " + err.message);
+      setStatus("Lỗi khi ghi vào ô: " + err.message);
     });
   };
 });
